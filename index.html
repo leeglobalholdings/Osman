@@ -114,6 +114,24 @@ canvas{
     opacity:0.5;
     font-size:0.8rem;
 }
+
+.withdraw-btn{
+    text-decoration:none;
+    padding:10px 18px;
+    border-radius:8px;
+    background:linear-gradient(135deg,#ff3c00,#ff7b00);
+    color:white;
+    font-weight:600;
+    display:inline-block;
+    transition:0.3s;
+    margin-top:12px;
+}
+
+.withdraw-btn:hover{
+    transform:translateY(-4px);
+    box-shadow:0 10px 25px rgba(255,60,0,0.6);
+    background:linear-gradient(135deg,#ff3c00,#ff0000,#ffff00);
+}
 </style>
 </head>
 <body>
@@ -129,9 +147,13 @@ canvas{
 
         <div class="card balance">
             <h2>Wallet Balance</h2>
-            <div class="amount">3 LEE COIN</div>
-            <div class="user">Holder: Mohammed Osman</div>
-            <div class="user">Owner Holds: 3 LEE COIN</div>
+            <div class="amount" id="coinAmount">3 LEE COIN</div>
+            <div class="user" id="holder">Holder: Mohammed Osman</div>
+            <div class="user" id="ownerHolds">Owner Holds: 3 LEE COIN</div>
+
+            <div style="margin-top:18px;">
+                <button class="withdraw-btn" id="withdrawRequestBtn">Withdraw</button>
+            </div>
         </div>
 
         <div class="card graph-card">
@@ -148,44 +170,112 @@ canvas{
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- date adapter needed for time scale -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<!-- financial chart plugin: candlestick/ohlc -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
 <script>
-const ctx = document.getElementById('priceChart').getContext('2d');
+// candlestick chart showing OHLC data fetched from CoinGecko
+const chartCtx = document.getElementById('priceChart').getContext('2d');
+let candleChart;
 
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: ['Launch', 'Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Today'],
-        datasets: [{
-            label: 'LEE Coin Price ($)',
-            data: [0.6, 0.7, 0.8, 0.9, 1.0, 2.0, 3.0],
-            borderColor: '#ff3c00',
-            backgroundColor: 'rgba(255,60,0,0.2)',
-            tension: 0.4,
-            fill: true,
-            pointBackgroundColor:'#ff7b00',
-            pointRadius:5
-        }]
-    },
-    options: {
-        plugins:{
-            legend:{labels:{color:'white'}}
+function createCandleChart(data) {
+    candleChart = new Chart(chartCtx, {
+        type: 'candlestick',
+        data: {
+            datasets: [{
+                label: 'LEE USD OHLC',
+                data: data,
+                color: {
+                    up: '#4caf50',
+                    down: '#f44336',
+                    unchanged: '#999'
+                }
+            }]
         },
-        scales: {
-            x: {
-                ticks:{color:'white'}
+        options: {
+            plugins: {
+                legend: { labels: { color: 'white' } }
             },
-            y: {
-                ticks:{color:'white'},
-                beginAtZero:false
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: 'hour' },
+                    ticks: { color: 'white' }
+                },
+                y: {
+                    ticks: { color: 'white' },
+                    beginAtZero: false
+                }
             }
         }
+    });
+}
+
+async function fetchOhlc() {
+    try {
+        // CoinGecko provides OHLC endpoint: days parameter can be 1,7,14,30,90,180,365,max
+        const res = await fetch('https://api.coingecko.com/api/v3/coins/lee-coin/ohlc?vs_currency=usd&days=1');
+        const json = await res.json();
+        console.log('OHLC response', json);
+        // some coin ids may not exist; if empty, provide dummy data so chart renders
+        let formatted;
+        if (Array.isArray(json) && json.length) {
+            formatted = json.map(item => ({
+                x: item[0],
+                o: item[1],
+                h: item[2],
+                l: item[3],
+                c: item[4]
+            }));
+        } else {
+            console.warn('no OHLC data returned, using mock values');
+            const now = Date.now();
+            // price currently around $3, make some fake candles near that level
+            formatted = [
+                {x: now - 3600000*5, o:2.9,h:3.05,l:2.85,c:3.0},
+                {x: now - 3600000*4, o:3.0,h:3.1,l:2.95,c:3.02},
+                {x: now - 3600000*3, o:3.02,h:3.08,l:3.0,c:3.05},
+                {x: now - 3600000*2, o:3.05,h:3.1,l:3.03,c:3.09},
+                {x: now - 3600000, o:3.09,h:3.15,l:3.08,c:3.12}
+            ];
+        }
+        createCandleChart(formatted);
+    } catch (err) {
+        console.error('ohlc fetch failed', err);
     }
+}
+
+fetchOhlc();
+// refresh every minute if you want live updates
+setInterval(fetchOhlc, 60000);
+</script>
+
+<script>
+// withdraw-only script
+
+
+
+
+
+
+
+
+// withdraw button behavior
+const withdrawRequestBtn = document.getElementById('withdrawRequestBtn');
+withdrawRequestBtn.addEventListener('click', ()=>{
+    // open mailto to predefined address
+    const mail = 'leeglobalholdings1@gmail.com';
+    const subject = encodeURIComponent('LEE Coin Withdrawal Request');
+    const body = encodeURIComponent('I would like to withdraw my LEE Coins. Please assist.');
+    window.location.href = `mailto:${mail}?subject=${subject}&body=${body}`;
 });
+
+
 </script>
 
 </body>
 
 </html>
-
 
 
