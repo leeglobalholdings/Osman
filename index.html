@@ -103,6 +103,33 @@ body{
     color:#ff7b00;
 }
 
+.timeframe-buttons{
+    display:flex;
+    gap:10px;
+    margin-bottom:12px;
+}
+
+.timeframe-buttons button{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    color:white;
+    padding:6px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    font-size:0.85rem;
+    transition:background 0.2s, transform 0.2s;
+}
+
+.timeframe-buttons button:hover{
+    background:rgba(255,255,255,0.18);
+    transform:translateY(-1px);
+}
+
+.timeframe-buttons button.active{
+    background:rgba(255,123,0,0.9);
+    border-color:rgba(255,123,0,0.9);
+}
+
 canvas{
     width:100%!important;
     height:250px!important;
@@ -113,24 +140,6 @@ canvas{
     text-align:center;
     opacity:0.5;
     font-size:0.8rem;
-}
-
-.withdraw-btn{
-    text-decoration:none;
-    padding:10px 18px;
-    border-radius:8px;
-    background:linear-gradient(135deg,#ff3c00,#ff7b00);
-    color:white;
-    font-weight:600;
-    display:inline-block;
-    transition:0.3s;
-    margin-top:12px;
-}
-
-.withdraw-btn:hover{
-    transform:translateY(-4px);
-    box-shadow:0 10px 25px rgba(255,60,0,0.6);
-    background:linear-gradient(135deg,#ff3c00,#ff0000,#ffff00);
 }
 </style>
 </head>
@@ -147,17 +156,20 @@ canvas{
 
         <div class="card balance">
             <h2>Wallet Balance</h2>
-            <div class="amount" id="coinAmount">4 LEE COIN</div>
-            <div class="user" id="holder">Holder: Mohammed Osman</div>
-            <div class="user" id="ownerHolds">Owner Holds: 4 LEE COIN</div>
-
-            <div style="margin-top:18px;">
-                <button class="withdraw-btn" id="withdrawRequestBtn">Withdraw</button>
-            </div>
+            <div class="amount">4 LEE COIN (~$40)</div>
+            <div class="user">1 LEE COIN = $10</div>
+            <div class="user">Holder: Mohammed Osman</div>
+            <div class="user">Owner Holds: 4 LEE COIN</div>
         </div>
 
         <div class="card graph-card">
             <h2>Market Growth</h2>
+            <div class="timeframe-buttons">
+                <button data-tf="1m" class="active">1m</button>
+                <button data-tf="4h">4h</button>
+                <button data-tf="1d">1d</button>
+                <button data-tf="1M">1M</button>
+            </div>
             <canvas id="priceChart"></canvas>
         </div>
 
@@ -170,41 +182,103 @@ canvas{
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- date adapter needed for time scale -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<!-- financial chart plugin: candlestick/ohlc -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.0/dist/chartjs-chart-financial.min.js"></script>
 <script>
-// candlestick chart showing OHLC data fetched from CoinGecko
-const chartCtx = document.getElementById('priceChart').getContext('2d');
-let candleChart;
+const COIN_PRICE = 10;
+const HOLDINGS = 4;
 
-function createCandleChart(data) {
-    candleChart = new Chart(chartCtx, {
+const balanceAmountEl = document.querySelector('.balance .amount');
+if (balanceAmountEl) {
+    balanceAmountEl.textContent = `${HOLDINGS} LEE COIN (~$${(HOLDINGS * COIN_PRICE).toFixed(2)})`;
+}
+
+function generateCandleData(basePrice, points, intervalMinutes, volatility = 0.02) {
+    const data = [];
+    let lastClose = basePrice;
+    const now = Date.now();
+
+    for (let i = points - 1; i >= 0; i--) {
+        const time = now - i * intervalMinutes * 60_000;
+        const open = lastClose;
+        const change = (Math.random() * 2 - 1) * volatility * basePrice;
+        const close = Math.max(0.01, open + change);
+        const high = Math.max(open, close) + Math.random() * volatility * basePrice;
+        const low = Math.min(open, close) - Math.random() * volatility * basePrice;
+
+        data.push({
+            x: time,
+            o: open,
+            h: high,
+            l: Math.max(0.01, low),
+            c: close
+        });
+
+        lastClose = close;
+    }
+
+    return data;
+}
+
+const timeframes = {
+    '1m': { label: '1m', points: 60, intervalMinutes: 1, unit: 'minute' },
+    '4h': { label: '4h', points: 48, intervalMinutes: 5, unit: 'hour' },
+    '1d': { label: '1d', points: 24, intervalMinutes: 60, unit: 'hour' },
+    '1M': { label: '1M', points: 30, intervalMinutes: 60 * 24, unit: 'day' }
+};
+
+const ctx = document.getElementById('priceChart').getContext('2d');
+let priceChart;
+
+function createChart(data, timeframeKey) {
+    const timeConfig = timeframes[timeframeKey] || timeframes['1m'];
+
+    return new Chart(ctx, {
         type: 'candlestick',
         data: {
             datasets: [{
-                label: 'LEE USD OHLC',
-                data: data,
+                label: `LEE Coin ($${COIN_PRICE})`,
+                data,
                 color: {
-                    up: '#4caf50',
-                    down: '#f44336',
-                    unchanged: '#999'
-                }
+                    up: 'rgba(0,200,0,0.65)',
+                    down: 'rgba(255,80,80,0.65)',
+                    unchanged: 'rgba(200,200,200,0.65)'
+                },
+                borderColor: {
+                    up: 'rgba(0,200,0,0.9)',
+                    down: 'rgba(255,80,80,0.9)',
+                    unchanged: 'rgba(200,200,200,0.9)'
+                },
+                borderWidth: 1,
+                barPercentage: 0.6,
+                categoryPercentage: 0.75
             }]
         },
         options: {
             plugins: {
-                legend: { labels: { color: 'white' } }
+                legend: { labels: { color: 'white' } },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const p = ctx.parsed;
+                            return `O:${p.o.toFixed(2)} H:${p.h.toFixed(2)} L:${p.l.toFixed(2)} C:${p.c.toFixed(2)}`;
+                        }
+                    }
+                }
             },
             scales: {
                 x: {
-                    type: 'time',
-                    time: { unit: 'hour' },
-                    ticks: { color: 'white' }
+                    type: 'timeseries',
+                    time: {
+                        unit: timeConfig.unit,
+                        tooltipFormat: 'MMM d, HH:mm'
+                    },
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
                 },
                 y: {
                     ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' },
                     beginAtZero: false
                 }
             }
@@ -212,70 +286,35 @@ function createCandleChart(data) {
     });
 }
 
-async function fetchOhlc() {
-    try {
-        // CoinGecko provides OHLC endpoint: days parameter can be 1,7,14,30,90,180,365,max
-        const res = await fetch('https://api.coingecko.com/api/v3/coins/lee-coin/ohlc?vs_currency=usd&days=1');
-        const json = await res.json();
-        console.log('OHLC response', json);
-        // some coin ids may not exist; if empty, provide dummy data so chart renders
-        let formatted;
-        if (Array.isArray(json) && json.length) {
-            formatted = json.map(item => ({
-                x: item[0],
-                o: item[1],
-                h: item[2],
-                l: item[3],
-                c: item[4]
-            }));
-        } else {
-            console.warn('no OHLC data returned, using mock values');
-            const now = Date.now();
-            // price currently around $3, make some fake candles near that level
-            formatted = [
-                {x: now - 3600000*5, o:2.9,h:3.05,l:2.85,c:3.0},
-                {x: now - 3600000*4, o:3.0,h:3.1,l:2.95,c:3.02},
-                {x: now - 3600000*3, o:3.02,h:3.08,l:3.0,c:3.05},
-                {x: now - 3600000*2, o:3.05,h:3.1,l:3.03,c:3.09},
-                {x: now - 3600000, o:3.09,h:3.15,l:3.08,c:3.12}
-            ];
-        }
-        createCandleChart(formatted);
-    } catch (err) {
-        console.error('ohlc fetch failed', err);
+function updateChart(timeframeKey) {
+    const cfg = timeframes[timeframeKey] || timeframes['1m'];
+    const data = generateCandleData(COIN_PRICE, cfg.points, cfg.intervalMinutes, 0.02);
+
+    if (priceChart) {
+        priceChart.data.datasets[0].data = data;
+        priceChart.options.scales.x.time.unit = cfg.unit;
+        priceChart.update();
+        return;
     }
+
+    priceChart = createChart(data, timeframeKey);
 }
 
-fetchOhlc();
-// refresh every minute if you want live updates
-setInterval(fetchOhlc, 60000);
-</script>
-
-<script>
-// withdraw-only script
-
-
-
-
-
-
-
-
-// withdraw button behavior
-const withdrawRequestBtn = document.getElementById('withdrawRequestBtn');
-withdrawRequestBtn.addEventListener('click', ()=>{
-    // open mailto to predefined address
-    const mail = 'leeglobalholdings1@gmail.com';
-    const subject = encodeURIComponent('LEE Coin Withdrawal Request');
-    const body = encodeURIComponent('I would like to withdraw my LEE Coins. Please assist.');
-    window.location.href = `mailto:${mail}?subject=${subject}&body=${body}`;
+document.querySelectorAll('.timeframe-buttons button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.timeframe-buttons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateChart(btn.dataset.tf);
+    });
 });
 
-
+updateChart('1m');
 </script>
 
 </body>
 
 </html>
+
+
 
 
