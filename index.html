@@ -135,6 +135,66 @@ canvas{
     height:250px!important;
 }
 
+.countdown-card{
+    background:linear-gradient(135deg,rgba(255,60,0,0.15),rgba(255,123,0,0.15));
+    border:2px solid #ff3c00;
+    padding:30px;
+    border-radius:20px;
+    text-align:center;
+    margin-bottom:25px;
+    box-shadow:0 0 30px rgba(255,60,0,0.3);
+}
+
+.countdown-card h2{
+    font-size:1.3rem;
+    color:#ff7b00;
+    margin-bottom:15px;
+    font-weight:600;
+}
+
+.warning-message{
+    font-size:1.1rem;
+    color:#ff6b6b;
+    font-weight:600;
+    margin-bottom:20px;
+    text-shadow:0 0 10px rgba(255,107,107,0.5);
+}
+
+.countdown-timer{
+    font-size:3rem;
+    font-weight:800;
+    background:linear-gradient(90deg,#ff3c00,#ff7b00);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    margin:20px 0;
+    font-family:'Courier New',monospace;
+    letter-spacing:3px;
+}
+
+.purchase-btn{
+    display:inline-block;
+    padding:15px 40px;
+    background:linear-gradient(135deg,#ff3c00,#ff7b00);
+    color:white;
+    border:none;
+    border-radius:12px;
+    font-size:1rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.3s;
+    text-decoration:none;
+    margin-top:15px;
+}
+
+.purchase-btn:hover{
+    transform:translateY(-4px);
+    box-shadow:0 15px 35px rgba(255,60,0,0.6);
+}
+
+.purchase-btn:active{
+    transform:translateY(-2px);
+}
+
 .footer{
     margin-top:30px;
     text-align:center;
@@ -154,14 +214,6 @@ canvas{
 
     <div class="cards">
 
-        <div class="card balance">
-            <h2>Wallet Balance</h2>
-            <div class="amount">10 LEE COIN (~$100)</div>
-            <div class="user">1 LEE COIN = $10</div>
-            <div class="user">Holder: Mohammed Osman</div>
-            <div class="user">Owner Holds: 10 LEE COIN</div>
-        </div>
-
         <div class="card graph-card">
             <h2>Market Growth</h2>
             <div class="timeframe-buttons">
@@ -173,6 +225,14 @@ canvas{
             <canvas id="priceChart"></canvas>
         </div>
 
+    </div>
+
+    <div class="countdown-card" id="countdownCard">
+        <h2>⚠️ Account Warning</h2>
+        <div class="warning-message">Kindly TOP UP your coins to 5 LEE coins to avoid getting banned midnight</div>
+        <div class="countdown-timer" id="countdownTimer">00:00:00</div>
+        <p style="opacity:0.7;margin-bottom:15px;">Time until account suspension</p>
+        <a href="https://tycoon-x32.github.io/LEE.co/" class="purchase-btn" id="purchaseBtn">💳 Purchase LEE Coins</a>
     </div>
 
     <div class="footer">
@@ -309,12 +369,64 @@ document.querySelectorAll('.timeframe-buttons button').forEach(btn => {
 });
 
 updateChart('1m');
+
+// Countdown Timer Logic
+let countdownInterval;
+let accountSuspended = false;
+
+function getTimeUntilMidnight() {
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const timeLeft = midnight - now;
+    return Math.max(0, timeLeft);
+}
+
+function formatCountdown(milliseconds) {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function updateCountdown() {
+    const timeLeft = getTimeUntilMidnight();
+    const timerElement = document.getElementById('countdownTimer');
+    
+    if (timeLeft <= 0) {
+        if (!accountSuspended) {
+            accountSuspended = true;
+            clearInterval(countdownInterval);
+            timerElement.textContent = '00:00:00';
+            
+            // Show alert
+            alert('Account suspended please buy Lee coin');
+            
+            // Flash the card red
+            const countdownCard = document.getElementById('countdownCard');
+            countdownCard.style.background = 'linear-gradient(135deg,rgba(255,50,50,0.25),rgba(255,80,80,0.25))';
+            countdownCard.style.borderColor = '#ff5252';
+            countdownCard.querySelector('h2').textContent = '🔒 ACCOUNT SUSPENDED';
+            countdownCard.querySelector('h2').style.color = '#ff5252';
+            countdownCard.querySelector('.warning-message').textContent = 'Your account has been suspended. Purchase LEE coins immediately to restore access.';
+            countdownCard.querySelector('.warning-message').style.color = '#ff5252';
+        }
+    } else {
+        timerElement.textContent = formatCountdown(timeLeft);
+    }
+}
+
+// Start countdown immediately
+updateCountdown();
+countdownInterval = setInterval(updateCountdown, 1000);
+
 </script>
 
 </body>
 
 </html>
-
 
 
 
